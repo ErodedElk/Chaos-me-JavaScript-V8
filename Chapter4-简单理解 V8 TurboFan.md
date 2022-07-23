@@ -1,26 +1,29 @@
 # Chapter4-简单理解 V8 TurboFan
 
-## 简单理解 TurboFan
+“JavaScript 代码本身就是一个二进制程序。”
+不知道读者是否在什么地方听说过这样的解释，但笔者认为这个形容相当生动。因为 JavaScript 的代码是懒惰解释的，只有在特定函数被执行时候，解释器才会对这部分代码进行解释，生成对应的字节码。但这些字节码会随着代码的运行而产生变动，同一份代码有可能在同一次执行中，由于动态优化的缘故而被解释为两段相差甚大的字节码。不知道您现在是否对这句话有了一点体会。在某些文章中我们甚至能看见这样的解释：“解释器即编译器”。
 
-“JavaScript 代码本身就是一个二进制程序。” 不知道读者是否在什么地方听说过这样的解释，但笔者认为这个形容相当生动。因为 JavaScript 的代码是懒惰解释的，只有在特定函数被执行时候，解释器才会对这部分代码进行解释，生成对应的字节码。但这些字节码会随着代码的运行而产生变动，同一份代码有可能在同一次执行中，由于动态优化的缘故而被解释为两段相差甚大的字节码。不知道您现在是否对这句话有了一点体会。在某些文章中我们甚至能看见这样的解释：“解释器即编译器”。
-
-### V8 的工作原理
+## V8 的工作原理
 
 > 或许您已经在某些地方见过这张图了，它很简洁的概况了整个流程。
 
-> * 首先会将 JavaScript 代码传递给 V8 引擎，并将其递给 Parse
-> * 然后它会根据代码生成对应的抽象语法树(AST)
-> * 接下来，Ignition 解释器就会直接根据 AST 生成对应的字节码，并开始执行它们
-> * 会有另外一个线程监测代码的执行过程，收集合适的数据进行回调
-> * TurboFan 会根据这些数据优化字节码，让它们能够更快的执行
+![](./img/chapter4/execution-pipeline.png)
+
+> - 首先会将 JavaScript 代码传递给 V8 引擎，并将其递给 Parse
+> - 然后它会根据代码生成对应的抽象语法树(AST)
+> - 接下来，Ignition 解释器就会直接根据 AST 生成对应的字节码，并开始执行它们
+> - 会有另外一个线程监测代码的执行过程，收集合适的数据进行回调
+> - TurboFan 会根据这些数据优化字节码，让它们能够更快的执行
 
 一个最简单的例子是，如果在运行过程中，TurboFan 发现某个函数的参数无论如何都只会是 32bit 整数，而不会是其他任何类型，那么它就可以省略掉很多类型检查上的操作了，完全有可能让一些加法被优化为单纯的 add 指令，而不是其他更加复杂的函数；但如果运行中发现，在某一时刻，传入的参数类型发生了变化，那么就会去除这次的优化，令代码回到本来的状态。
 
 从安全的角度来说，如果一段被优化后的代码在遇到某些非法输入时没能正确的执行“去优化(deoptimizations)”步骤或是甚至没有做 deoptimizations，就有可能导致这段代码被错误的使用。
 
-### V8 字节码
+
+## V8 字节码
 
 字节码是根据语法树转换而来的，那不如我们先从语法树开始 。通过添加参数 `--print-ast` 可以令其打印出 AST。来看下面的示例：
+
 
 ```javascript
 function add(val1, val2) {
@@ -30,7 +33,7 @@ var res1=add(1,2);
 var res2=add("a","b");
 ```
 
-```
+```ast
 $ ./d8 ./bytecode.js --print-ast
 [generating bytecode for function: ]
 --- AST ---
@@ -80,8 +83,8 @@ FUNC at 12
 . . . VAR PROXY parameter[1] (0x56295442b760) (mode = VAR, assigned = false) "val2"
 ```
 
-第一个 AST 是整个程序执行流的，而第二个则是函数 add 的 AST，我们的重点放在第二个上并将其转为流程图：
-
+ 第一个 AST 是整个程序执行流的，而第二个则是函数 add 的 AST，我们的重点放在第二个上并将其转为流程图：
+ 
 ```
                        +---------+
              +---------+ Function+----------+
@@ -100,6 +103,7 @@ FUNC at 12
                         | var proxy val1 |     | var proxy val2 |
                         +----------------+     +----------------+
 ```
+
 
 > 这里我们省略掉了 DECLS 分支，因为我们并不是很关心这些。
 
@@ -122,13 +126,14 @@ Handler Table (size = 0)
 Source Position Table (size = 0)
 ```
 
-* Parameter count：参数个数。除了我们提供的参数以外，还包括了一个 this 指针。
+- Parameter count：参数个数。除了我们提供的参数以外，还包括了一个 this 指针。
 
 Ignition 使用一种名为 “register machine” 的机制来模拟寄存器，其中有一个与 x86 下的 rax 相似的 accumulator register(累加寄存器)，它用于常规的计算以及返回值。
 
 具体的字节码就不再做翻译了，因为下文中其实不怎么需要它，此处多有一些抛砖引玉的意思。
 
-### 优化过程
+
+## 优化过程
 
 通过添加参数 `--trace-opt` 和 `--trace-deopt` 可以跟踪程序的优化和去优化过程：
 
@@ -179,7 +184,7 @@ $ ./d8 ./bytecode.js --trace-opt --trace-deopt
 
 > 另外，具体的过程我们会在接下来的内容说明。目前我们需要知道的事实仅有如上这部分内容。
 
-#### 图形化分析
+### 图形化分析
 
 ```js
 function add(x)
@@ -200,21 +205,24 @@ for (let i = 0; i < 0x10000; ++i) {
 
 通过添加 `--trace-turbo` 可以在目录下生成 `*.json` 和 `*.cfg*` ，我们可以将 `add` 函数导出的 json 导入到 turbolizer 中以获取到对应的值传递图：(隐藏了一部分，优化以前的状态)
 
+![](./img/chapter4/turbolizer-before.png)
+
 在值传递的过程中可以注意到，Turbofan 总是传递 `Range(n,n)` 类型，它表示传出的值的上下限，对于常数来说，它的上下界是相同的；而对于 SpeculativeSafeIntergerAdd 这类运算函数，它的类型则根据执行流分别计算下界和上界。
 
 > 是的，只需要知道值的上下限就能够确定最终能够使用什么样的类型了。它只是在尝试简化 AST 树，因此并不涉及到实际的执行过程，只需要确定在执行的过程中，需要用什么类型的值表示变量即可。
+
 
 另外，因为一些编译原理上的设计，每个变量只会经过一次赋值，因此需要使用 Phi 结点去对值进行选择。尽管它只可能返回 0 或 1，但仍然给出了 `Range(0,1)` 。
 
 在完成基本的构建以后，是通过 `TyperPhase::Run` 对整个结构图进行遍历并确定所有结点的属性，其调用链大致如下：
 
-`TyperPhase::Run` --> `Typer::Run` --> `GraphReducer::ReduceGraph` --> `Typer::Visitor::Reduce` --> `Typer::Visitor::***Typer` (此处 \* 用以指代某个名称，例如 JSCall)
+`TyperPhase::Run` --> `Typer::Run` --> `GraphReducer::ReduceGraph` --> `Typer::Visitor::Reduce` --> `Typer::Visitor::***Typer` (此处 * 用以指代某个名称，例如 JSCall)
 
 这会遍历每一个结点，并根据它们的输入来确定最后的类型，并且在这个过程中，它会尝试减少一部分节点来加快运行效率。
 
 姑且用一段简单的源代码来说明一下这个过程，哪怕我并不希望在入门阶段就立刻进入源代码层面，但又似乎逃不开它：
 
-```
+```c++
 void Typer::Run(const NodeVector& roots,
                 LoopVariableOptimizer* induction_vars) {
   if (induction_vars != nullptr) {
@@ -233,7 +241,7 @@ void Typer::Run(const NodeVector& roots,
 
 在 `Typer::Run` 中会调用 `ReduceGraph` 尝试对结点进行缩减，它最终会根据结点的类型来确定运行的函数：
 
-```
+```c++
 Type Typer::Visitor::JSCallTyper(Type fun, Typer* t) { 
 if (!fun.IsHeapConstant() || !fun.AsHeapConstant()->Ref().IsJSFunction()) { 
 return Type::NonInternal(); 
@@ -257,7 +265,7 @@ return t->cache_->kIntegerOrMinusZeroOrNaN;
 
 对于常数，也有类似却又小得多的结果：
 
-```
+```c++
 Type Typer::Visitor::TypeNumberConstant(Node* node) { 
 double number = OpParameter<double>(node->op()); 
 return Type::Constant(number, zone()); 
@@ -268,7 +276,7 @@ return Type::Constant(number, zone());
 
 然后再进入 `Type::Constant` ：
 
-```
+```c++
 Type Type::Constant(double value, Zone* zone) { 
 if (RangeType::IsInteger(value)) { 
 return Range(value, value, zone); 
@@ -286,7 +294,7 @@ return OtherNumberConstant(value, zone);
 
 而 Speculative 前缀含有推测的意思，这往往意味着这个函数能够根据情况进一步优化，例如`SpeculativeSafeIntegerAdd` 就是如此。在优化以前，它会以这个结点表示所有的加法，而在它通过代码运行时分析，发现其执行数据符合一定的预期时，就能够用更加具体且更加快速的函数来替代了。
 
-```
+```c++
 Type OperationTyper::SpeculativeToNumber(Type type) {
   return ToNumber(Type::Intersect(type, Type::NumberOrOddball(), zone()));
 }
@@ -309,7 +317,7 @@ opt_me(4242);
 
 就会使用 `SpeculativeNumberAdd` 替代它：
 
-!\[\[turbolizer-1.png]]
+![[turbolizer-1.png]]
 
 而如果我们只使用一些较小的数：
 
@@ -327,6 +335,8 @@ opt_me(false);
 
 就会生成相当简单的 `Int32Add` ：
 
+![](./img/chapter4/turbolizer-2.png)
+
 另外，而如果需要通过索引来读取数组：
 
 ```js
@@ -341,21 +351,26 @@ for (var i=0;i<0x20000;i++) {
 }
 ```
 
+![](./img/chapter4/turbolizer-3.png)
 有一个特殊的函数是 `CheckBounds` ，它会检查输入的索引值是否越界，然后才能够返回对应的数。它的类型也是 `Range` ，通过确定的上下界就能够很容易的分析出索引是否越界，因此在旧版的 V8 中会在优化后消除检查；不过，在现在的版本里，这个检查又加回来了：
 
-> 似乎看起来消除检查也没太大问题，因为上下界确定的情况下 Turbofan 认为绝对不可能发生越界了。 但如果在代码层面和优化层面对数值的计算不一致，优化层计算出的结果表示不会越界，而代码层的计算结果却超出了范围，那么就能够利用优化后取出检查的机制来越界读写了。 很危险，因此现在又恢复了这个检查。
+![](./img/chapter4/turbolizer-4.png)
+
+> 似乎看起来消除检查也没太大问题，因为上下界确定的情况下 Turbofan 认为绝对不可能发生越界了。
+> 但如果在代码层面和优化层面对数值的计算不一致，优化层计算出的结果表示不会越界，而代码层的计算结果却超出了范围，那么就能够利用优化后取出检查的机制来越界读写了。
+> 很危险，因此现在又恢复了这个检查。
 
 总结一下目前可能产生的优化：
 
-* JSCall 调用内置函数结点被 PlainNumber 等已知类型替代
-* NumberConstant 以 Range(n,n) 表示
-* SpeculativeNumberAdd(PlainNumber, PlainNumber) 则会以 PlainNumber 表示，
+- JSCall 调用内置函数结点被 PlainNumber 等已知类型替代
+- NumberConstant 以 Range(n,n) 表示
+- SpeculativeNumberAdd(PlainNumber, PlainNumber) 则会以 PlainNumber 表示，
 
 当然，肯定不只是这些内容，但我们没必要全部展开一一阐明，并且我相信您至少对这种替换有了一定的认识了。
 
 但这只是初步优化，接下来还会做不同阶段的分层优化：
 
-```
+```c++
     TypedOptimization typed_optimization(&graph_reducer, data->dependencies(),
                                          data->jsgraph(), data->broker());
                                          
@@ -371,7 +386,7 @@ for (var i=0;i<0x20000;i++) {
 
 在 `TypedOptimization` 中，会调用各类 `Reduce` 函数对类型进行优化，例如上述的 `SpeculativeNumberAdd` ：
 
-```
+```c++
 Reduction TypedOptimization::ReduceSpeculativeNumberAdd(Node* node) {
   Node* const lhs = NodeProperties::GetValueInput(node, 0);
   Node* const rhs = NodeProperties::GetValueInput(node, 1);
@@ -398,7 +413,7 @@ Reduction TypedOptimization::ReduceSpeculativeNumberAdd(Node* node) {
 
 这会尝试通过 `NumberOperationHintOf` 来判别我们的表达式行为：
 
-```
+```c++
 NumberOperationHint NumberOperationHintOf(const Operator* op) {
   DCHECK(op->opcode() == IrOpcode::kSpeculativeNumberAdd ||
          op->opcode() == IrOpcode::kSpeculativeNumberSubtract ||
@@ -425,9 +440,9 @@ NumberOperationHint NumberOperationHintOf(const Operator* op) {
 
 `JSTypedLowering::ReduceJSCall` 也有类似的操作，这里不再展开，读者可以自行尝试对照源代码。
 
-## 实例分析
+# 实例分析
 
-### GoogleCTF2018-Just In Time
+## GoogleCTF2018-Just In Time
 
 惯例根据一个实际的样本来说明 Turbofan 的利用过程，理解一下这种优化在什么情况下能够被利用。首先我们从资料较多的例题开始。
 
@@ -447,6 +462,7 @@ NumberOperationHint NumberOperationHintOf(const Operator* op) {
  AddReducer(data, &graph_reducer, &dead_code_elimination); 
  + AddReducer(data, &graph_reducer, &duplicate_addition_reducer); 
  AddReducer(data, &graph_reducer, &create_lowering); 
+
 ```
 
 可以注意到，在最后的一系列优化中，题目添加了一个额外的优化，向上跟踪可以找到其来自于 `DuplicateAdditionReducer` 再往上找即可发现关键的漏洞代码：
@@ -547,15 +563,13 @@ NumberOperationHint NumberOperationHintOf(const Operator* op) {
 ```
 
 总结如下：
-
-* 结点本身为 kNumberAdd
-* 左树结点也为 kNumberAdd
-* 右树结点为 kNumberConstant
-* 左树的右父节点也为 kNumberConstant
-* 满足以上条件时，将该结点替换为 NumberConstant(const1+const2)，意味将两个常数合并
+- 结点本身为 kNumberAdd
+- 左树结点也为 kNumberAdd
+- 右树结点为 kNumberConstant
+- 左树的右父节点也为 kNumberConstant
+- 满足以上条件时，将该结点替换为 NumberConstant(const1+const2)，意味将两个常数合并
 
 满足条件的情况下，其结点树大致如下：`x+constant+constant`
-
 ```
                  +------------------+
                  | kNumberConstant  |
@@ -580,14 +594,14 @@ NumberOperationHint NumberOperationHintOf(const Operator* op) {
 之后它会将两个常数结点运算后替换成 `x+constant` ，这样在执行时就能减少一次运算了。
 
 > 这里的加法即为 JIT 优化层面的运算，我们可以考虑这样一种情况：
->
-> * Index\[x] 未越界，可执行
-> * Index\[x+1+1] 未越界，可执行
-> * Index\[x+2] 越界，不可执行
+> - Index[x] 未越界，可执行
+> - Index[x+1+1] 未越界，可执行
+> - Index[x+2] 越界，不可执行
 
 不知您是否发现了某些问题，如果我们在代码层面写的是 `Index[x+1+1]` ，那么它是一条可执行的语句，而如果写 `Index[x+2]` 则会被检查出越界；那如果我们写入 `Index[x+1+1]` 使其通过检查后，让优化器把这段语句自动优化成了 `Index[x+2]` ，是否就能够绕过边界检查实现越界读写呢？
 
-> 如果您熟悉 C 语言或是其他类似的编程语言，那么你或许不会认为把 `1+1` 优化为 `2` 是一种不合理的选择，但由于在 JavaScript 中的整数实际上是通过 double 类型的浮点数表示，因此就有可能在运算时发生问题。 例如，`Number.MAX_SAFE_INTEGER` 就表示能够安全运算的最大整数，超出该数的运算就有可能发生上述问题，但它并不禁止你使用这类整数，因此在编写代码时需要程序员自己注意。
+> 如果您熟悉 C 语言或是其他类似的编程语言，那么你或许不会认为把 `1+1` 优化为 `2` 是一种不合理的选择，但由于在 JavaScript 中的整数实际上是通过 double 类型的浮点数表示，因此就有可能在运算时发生问题。
+> 例如，`Number.MAX_SAFE_INTEGER` 就表示能够安全运算的最大整数，超出该数的运算就有可能发生上述问题，但它并不禁止你使用这类整数，因此在编写代码时需要程序员自己注意。
 
 我们可以直接上代码试试这个事实：
 
@@ -605,8 +619,7 @@ d8> x=x+1
 
 这个事实在各个版本中都存在，尽管它并不一定算是个问题，但和题目的优化机制结合就变得可以利用了。
 
-#### 一个简单的越界
-
+### 一个简单的越界
 ```js
 function oob(x)
 {
@@ -629,7 +642,6 @@ console.log(oob(1));
 ```
 
 执行它将会打印出如下内容：
-
 ```shell
 $ ./d8 exp.js --allow-natives-syntax --trace-turbo
 3.3
@@ -639,25 +651,30 @@ $ ./d8 exp.js --allow-natives-syntax --trace-turbo
 
 我们可以尝试通过节点海跟踪一下这个分析过程。在没有进行优化时，我们得到的节点海为：
 
+![](./img/chapter4/googlectf0.png)
 此时将遍历所有结点，并通过计算得出它们的 Range 取值范围。可以发现，此时的 CheckBounds 得知这个范围为 `Range(2,3)` ，这是不可能发生溢出的。
 
+
 然后到了 typedlowering 阶段，将开始进行初步的优化，可以注意到，此时 `1+1` 已经被优化为了 `NumberConstant[2]` ，但并没有重新计算 CheckBounds 得到的范围。
+![](./img/chapter4/googlectf1.png)
 
 由于 CheckBounds 发现这个结点给出索引始终都在 Range(2,3)，因此在 simplified lowering阶段已经将这个结点删除：
+
+![](./img/chapter4/googlectf2.png)
 
 而当完成优化以后，再次执行这个函数时，`t+1+1` 变成 `t+2` 导致了计算结果超出预期进行越界读写，却没能被检查出来，因此得到了越界的能力。
 
 > 总结以下上述的过程就是：
->
-> * Range 只在最初的阶段进行计算
-> * 而如果后续的优化会导致 Range 的范围变动，而 turbofan 并不会重新计算
-> * 于是该值发生越界
->
+> - Range 只在最初的阶段进行计算
+> - 而如果后续的优化会导致 Range 的范围变动，而 turbofan 并不会重新计算
+> - 于是该值发生越界
+> 
 > 当然，由于现在的版本不再删除 checkbound 结点，因此这个问题只会发生在过去，但它仍然值得我们学习。
+
 
 能够越界读写以后，泄露地址和伪造数据自然不在话下。只要修改 JSArray 的 length 属性为需要的值，之后就能够随意读写界外了。相关代码如下：
 
-```
+```c++
 bool IsOutOfBoundsAccess(Handle<Object> receiver, uint32_t index) {
   uint32_t length = 0;
   if (receiver->IsJSArray()) {
