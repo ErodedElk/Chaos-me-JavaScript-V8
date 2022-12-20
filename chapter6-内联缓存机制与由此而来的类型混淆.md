@@ -355,11 +355,12 @@ DebugPrint: 0x37910010ad11: [JS_OBJECT_TYPE]
 
 此时的称之为单态内联缓存(MONOMORPHIC)：
 
-![[MONOMORPHIC.png]]
+![](./img/chapter6/MONOMORPHIC.png)
 
 而如果有几个不同的隐藏类，但是其访问的对象具有相同的属性，就能够形成多态内联缓存(POLYMORPHIC)：
 
-![[POLYMORPHIC.png]]
+
+![](./img/chapter6/POLYMORPHIC.png)
 
 而如果这个数量超过 4 个，就将成为超态内联缓存(MEGAMORPHIC)。
 
@@ -961,8 +962,7 @@ map:0x4 | properties:0x4 | elements:0x4 | wrapper_info:0x4 | blink_object:0x4
 `wrapper_info` 指定了 Blink 对象的类型，而 `blink_object` 则指向了 Blink 中的对象。
 
 而在 Blink 中，一个能够被 V8 访问的对象继承自 `ScriptWrappable` ，它的 `main_world_wrapper_` 属性提供了包含该对象的一个 V8 对象链接：(这里引用了原文的图片)
-
-![[main_world_wrapper_.png]]
+![](./img/chapter6/main_world_wrapper_.png)
 
 而当我们通过 `temp.x` 去访问 `DOMRectReadOnly` 中的属性时，会调用 `out/Debug/gen/third_party/blink/renderer/bindings/core/v8/v8_dom_rect_read_only.cc` 下的 `XAttributeGetCallback` ：
 
@@ -1197,7 +1197,7 @@ class MODULES_EXPORT DeviceMotionData final
 
 `DeviceMotionEvent` 在某固定偏移处指向了 `device_motion_data_` ，并从该对象的固定偏移处读取 `interval_` ，我们将这种读取方式应用与另外一个对象，本例中即为 `DOMMatrix` ，那么它就会从 `DOMMatrix.m33` 偏移处获取到地址作为 `device_motion_data_` ，并从该地址处的固定偏移获取数据：
 
-![[device_motion_data_.png]]
+![](./img/chapter6/device_motion_data_.png)
 
 ```js
     class SubMatrix extends DOMMatrix {
@@ -1329,7 +1329,7 @@ AbortSignal* signal() const { return signal_; }
 
 那么我们的目标就很明确了，首先声明一个 `Request` 对象用以获取 `signal` ，然后找到一个与 `signal_` 有相同偏移却能够由我们随意控制的对象，将其设定为伪造好的内存结构，然后再返回出来即可。
 
-![[fakeObj.png]]
+![](./img/chapter6/fakeObj.png)
 
 ```js
     class SubAudioData extends AudioData {
