@@ -14,3 +14,5 @@ Dice CTF Memory Hole: Breaking V8 Heap Sandbox：JIT Spray to write shellcode/[h
 
 DiceCTF 2022 - memory hole：imported\_mutable\_global 逃逸 virtual pointer cage\
 [https://blog.kylebot.net/2022/02/06/DiceCTF-2022-memory-hole/#V8-Virtual-Memory-Cage](https://blog.kylebot.net/2022/02/06/DiceCTF-2022-memory-hole/#V8-Virtual-Memory-Cage)
+
+但该方法由于如下补丁已失效：[https://chromium-review.googlesource.com/c/v8/v8/+/3845636](https://chromium-review.googlesource.com/c/v8/v8/+/3845636)
