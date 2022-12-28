@@ -8,4 +8,4 @@ Leak Hole Value to RCE：CVE-2021-38003/[https://medium.com/numen-cyber-labs/fro
 
 
 
-Dice CTF Memory Hole: Breaking V8 Heap Sandbox:[https://mem2019.github.io/jekyll/update/2022/02/06/DiceCTF-Memory-Hole.html](https://mem2019.github.io/jekyll/update/2022/02/06/DiceCTF-Memory-Hole.html)
+Dice CTF Memory Hole: Breaking V8 Heap Sandbox：JIT Spray to write shellcode/[https://mem2019.github.io/jekyll/update/2022/02/06/DiceCTF-Memory-Hole.html](https://mem2019.github.io/jekyll/update/2022/02/06/DiceCTF-Memory-Hole.html)
