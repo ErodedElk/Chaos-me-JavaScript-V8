@@ -1446,6 +1446,9 @@ WasmCodeAllocator::WasmCodeAllocator(std::shared_ptr<Counters> async_counters)
 
 一些基础的加减法运算会在多次执行以后通过 JIT 优化生成机器码，而如果 `write_protect_code_memory_` 没有置为非零，那么就会为这段机器码创建 RWX 内存段，通过写这段内存来注入 shellcode，最后再次调用 JIT 优化代码触发。
 
+| 2023.3.11 更新：
+| 注意到 `stableWrite(0xa070, 0, false);` 的操作，它通过偏移完成，这在当时的版本的是可行的。但就最近的实际情况来说，该 flag 的地址已经变化了，他不在位于 V8 的 heap 中，因此要修改该 flag 需要用其他方法层层读取
+
 ```c++
   if (executable == EXECUTABLE) {
     if (heap->write_protect_code_memory()) {
