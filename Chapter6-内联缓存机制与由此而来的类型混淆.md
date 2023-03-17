@@ -167,7 +167,7 @@ B {}
 
 可以看出此处所说的 `父对象` 实则就是 `this.prototype` 所指的对象，而 `prototype.__proto__` 可以直接修改该对象。
 
-> b.__proto__ is the object from which b inherits properties. B.prototype is the object which will be the __proto__ of objects created with new B(), that is b.__proto__ === B.prototype.
+> b.\_\_proto\_\_ is the object from which b inherits properties. B.prototype is the object which will be the \_\_proto\_\_ of objects created with new B(), that is b.\_\_proto\_\_ === B.prototype.
 
 ### 另外一个相关特性
 
