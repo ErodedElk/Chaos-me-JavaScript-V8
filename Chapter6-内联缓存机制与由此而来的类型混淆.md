@@ -136,8 +136,6 @@ B {foo: 2}
 
 但有一个已被弃用，但 chrome 仍然实现的功能：`prototype.__proto__` 
 
-> b.__proto__ is the object from which b inherits properties. B.prototype is the object which will be the __proto__ of objects created with new B(), that is b.__proto__ === B.prototype.
-
 ```c
 class B {
     m()
@@ -168,6 +166,8 @@ B {}
 > **super** 关键字用于访问和调用一个对象的父对象上的函数。
 
 可以看出此处所说的 `父对象` 实则就是 `this.prototype` 所指的对象，而 `prototype.__proto__` 可以直接修改该对象。
+
+> b.__proto__ is the object from which b inherits properties. B.prototype is the object which will be the __proto__ of objects created with new B(), that is b.__proto__ === B.prototype.
 
 ### 另外一个相关特性
 
