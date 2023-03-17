@@ -136,6 +136,8 @@ B {foo: 2}
 
 但有一个已被弃用，但 chrome 仍然实现的功能：`prototype.__proto__` 
 
+> b.__proto__ is the object from which b inherits properties. B.prototype is the object which will be the __proto__ of objects created with new B(), that is b.__proto__ === B.prototype.
+
 ```c
 class B {
     m()
